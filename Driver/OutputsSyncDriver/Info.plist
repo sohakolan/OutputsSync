@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>   <string>English</string>
+    <key>CFBundleIdentifier</key>          <string>com.outputssync.nightly.driver</string>
+    <key>CFBundleName</key>                <string>OutputsSyncDriver</string>
+    <key>CFBundleExecutable</key>          <string>OutputsSyncDriver</string>
+    <key>CFBundleVersion</key>             <string>1.0</string>
+    <key>CFBundleShortVersionString</key>  <string>1.0</string>
+    <key>CFBundlePackageType</key>         <string>BNDL</string>
+    <key>CFBundleSignature</key>           <string>????</string>
+    <key>CFPlugInFactories</key>
+    <dict>
+        <key>E8F4B2A0-9C7D-4E5F-A1B2-C3D4E5F60718</key>
+        <string>OutputsSyncDriver_Create</string>
+    </dict>
+    <key>CFPlugInTypes</key>
+    <dict>
+        <!-- kAudioServerPlugInTypeUUID -->
+        <key>443ABAB8-E7B3-491A-B985-BEB9187030DB</key>
+        <array>
+            <string>E8F4B2A0-9C7D-4E5F-A1B2-C3D4E5F60718</string>
+        </array>
+    </dict>
+</dict>
+</plist>
