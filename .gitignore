@@ -1,0 +1,10 @@
+# Build artefacts
+.build/
+build/
+*.app/
+*.dmg
+DerivedData/
+.swiftpm/
+
+# macOS
+.DS_Store
