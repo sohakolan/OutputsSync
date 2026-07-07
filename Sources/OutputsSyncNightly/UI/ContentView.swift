@@ -1,11 +1,46 @@
 import SwiftUI
 
 struct ContentView: View {
+    enum Mode: Hashable { case local, network }
+
     @EnvironmentObject var state: AppState
+    @EnvironmentObject var room: RoomManager
+    @State private var mode: Mode = .local
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
+            modeBar
+            if mode == .local {
+                localSections
+            } else {
+                RoomView()
+                HStack { Spacer(); powerButton }
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 20)
+        .padding(.bottom, 14)
+        .frame(width: 340)
+    }
+
+    private var modeBar: some View {
+        Picker("", selection: $mode) {
+            Text("Local").tag(Mode.local)
+            Text("Réseau").tag(Mode.network)
+        }
+        .pickerStyle(.segmented).labelsHidden()
+    }
+
+    private var powerButton: some View {
+        Button { NSApplication.shared.terminate(nil) } label: {
+            Image(systemName: "power")
+        }
+        .help("Quitter")
+    }
+
+    private var localSections: some View {
+        VStack(alignment: .leading, spacing: 12) {
             sourceSection
             masterSection
             Divider()
@@ -19,10 +54,6 @@ struct ContentView: View {
             }
             footer
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 20)
-        .padding(.bottom, 14)
-        .frame(width: 340)
     }
 
     private var header: some View {
@@ -190,10 +221,7 @@ struct ContentView: View {
             .tint(.purple)
             .disabled(state.selectedUIDs.isEmpty || !state.sourceAvailable)
 
-            Button { NSApplication.shared.terminate(nil) } label: {
-                Image(systemName: "power")
-            }
-            .help("Quitter")
+            powerButton
         }
     }
 }

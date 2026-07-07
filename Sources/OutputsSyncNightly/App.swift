@@ -6,10 +6,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
     private let state = AppState()
+    private let room = RoomManager()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         popover.behavior = .transient
-        let hosting = NSHostingController(rootView: ContentView().environmentObject(state))
+        let hosting = NSHostingController(
+            rootView: ContentView().environmentObject(state).environmentObject(room))
         // Le popover se dimensionne exactement au contenu SwiftUI (plus de
         // hauteur figée qui rognait le haut quand plusieurs sorties sont ouvertes).
         hosting.sizingOptions = [.preferredContentSize]
@@ -37,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             popover.performClose(sender)
         } else {
             state.refreshDevices()
+            room.refreshOutputs()
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKey()
         }
@@ -44,5 +47,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         state.stop()
+        room.leaveRoom()
     }
 }

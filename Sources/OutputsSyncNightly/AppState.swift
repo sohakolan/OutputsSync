@@ -48,6 +48,17 @@ final class AppState: ObservableObject {
         if isRunning { restart() }
     }
 
+    /// Toggle utilisé par le mode réseau : coche/décoche une sortie locale et
+    /// démarre/arrête le fan-out local automatiquement (pas de bouton Activer).
+    func toggleLocalLive(_ uid: String) {
+        toggle(uid)
+        if !selectedUIDs.isEmpty, sourceAvailable, !isRunning {
+            start()
+        } else if selectedUIDs.isEmpty, isRunning {
+            stop()
+        }
+    }
+
     /// Désigne une sortie comme horloge maître de l'agrégat (la place en tête).
     func setClock(_ uid: String) {
         guard let idx = selectedUIDs.firstIndex(of: uid), idx != 0 else { return }

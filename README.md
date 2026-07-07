@@ -29,6 +29,10 @@
 - 🕹️ **Choix de l'horloge maître** : décide quel appareil cadence l'agrégat.
 - 🧭 **Alignement automatique** depuis la latence rapportée par CoreAudio (idéal
   HDMI/AirPods), affinable à la main pour du Bluetooth générique.
+- 🌐 **Mode réseau local** : crée une **room** (nom + code PIN) et partage le son
+  entre plusieurs Mac du réseau — chacun peut **émettre** son son ou **écouter**
+  un autre, le tout gardé synchronisé par une **horloge commune**. Voir
+  [docs/NETWORK.md](docs/NETWORK.md).
 
 ## Comment ça marche
 
@@ -51,6 +55,35 @@ Apps ─▶ [ OutputsSync Nightly ]  (sortie système, volume = F11/F12)
 > pour le redistribuer compte comme une « entrée ». C'est normal, aucun micro
 > réel n'est utilisé. (La variante sans pastille demanderait de la mémoire
 > partagée, bloquée par le sandbox de coreaudiod sur macOS récent.)
+
+## Mode réseau (LAN)
+
+Bascule sur l'onglet **Réseau** : tu vois la **liste des rooms détectées** sur le
+réseau (Bonjour) — clique **Rejoindre** sur l'une d'elles (code PIN demandé
+seulement si la room en a un). Ou **crée** ta room (tu deviens l'horloge
+maître) ; le **PIN est optionnel** (sans PIN, la room est ouverte).
+
+Ensuite, une **liste unifiée de destinations** rassemble **tes sorties locales**
+(enceintes, BT, HDMI…) **et les Mac de la room**. Coche ce que tu veux : ton son
+sort **en local ET vers les Mac cochés en même temps**, synchronisé. Chaque Mac
+distant joue sur **ses propres** sorties (qu'il configure chez lui). Le bouton
+casque d'un Mac fait l'inverse : tu **écoutes** son son sur ta sortie locale.
+
+```
+Mac A ──▶ capture loopback ──UDP──▶ Mac B ──▶ sortie locale
+      (horodaté en heure-room)   (programmé sur l'instant de présentation)
+```
+
+- **Synchro propre** : une horloge commune (type NTP) aligne les machines au
+  sub-ms, et un resampler verrouille la lecture pour éviter la dérive.
+- **Latence** : PCM bit-perfect + délai de playout adaptatif (le plus bas que le
+  réseau permet).
+- **Sécurité** : rejoindre exige le **code PIN** de la room.
+- Un Mac qui **écoute seulement** n'a **pas besoin du driver** ; seul un Mac qui
+  **émet** en a besoin (pour capter son son système).
+- Première utilisation : macOS demande l'autorisation **« réseau local »**.
+
+Détails d'architecture : [docs/NETWORK.md](docs/NETWORK.md).
 
 ## Installation
 

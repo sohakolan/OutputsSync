@@ -14,7 +14,8 @@ let package = Package(
                 .linkedFramework("AppKit"),
                 .linkedFramework("SwiftUI"),
                 .linkedFramework("CoreAudio"),
-                .linkedFramework("AudioToolbox")
+                .linkedFramework("AudioToolbox"),
+                .linkedFramework("Network")
             ]
         )
     ]

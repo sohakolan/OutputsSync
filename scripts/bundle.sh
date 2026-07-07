@@ -31,14 +31,20 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
     <key>CFBundleIdentifier</key>        <string>com.outputssync.nightly.app</string>
     <key>CFBundleExecutable</key>        <string>OutputsSyncNightly</string>
     <key>CFBundleIconFile</key>          <string>AppIcon</string>
-    <key>CFBundleVersion</key>           <string>1.0</string>
-    <key>CFBundleShortVersionString</key><string>1.0</string>
+    <key>CFBundleVersion</key>           <string>1.1.0</string>
+    <key>CFBundleShortVersionString</key><string>1.1.0</string>
     <key>CFBundlePackageType</key>       <string>APPL</string>
     <key>LSMinimumSystemVersion</key>    <string>15.0</string>
     <key>LSUIElement</key>               <true/>
     <key>NSHighResolutionCapable</key>   <true/>
     <key>NSMicrophoneUsageDescription</key>
     <string>OutputsSync lit l'audio des apps via le périphérique loopback « OutputsSync Nightly » pour le redistribuer vers plusieurs sorties. Aucun micro réel n'est utilisé.</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>OutputsSync utilise le réseau local pour partager le son entre plusieurs ordinateurs d'une même « room » et les garder synchronisés.</string>
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_outputssync._tcp</string>
+    </array>
 </dict>
 </plist>
 PLIST

@@ -41,6 +41,13 @@ enum AudioDevices {
         all().first { $0.uid == uid }
     }
 
+    /// Périphérique de sortie par défaut du système.
+    static func defaultOutput() -> AudioDeviceInfo? {
+        let id = CA.value(AudioObjectID(kAudioObjectSystemObject),
+                          kAudioHardwarePropertyDefaultOutputDevice, default: AudioObjectID(0))
+        return id != 0 ? info(for: id) : nil
+    }
+
     static func nominalSampleRate(_ id: AudioObjectID) -> Double {
         CA.value(id, kAudioDevicePropertyNominalSampleRate, default: 48_000.0)
     }
