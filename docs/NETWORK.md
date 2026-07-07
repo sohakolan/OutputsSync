@@ -1,10 +1,11 @@
 # Mode réseau local (room bidirectionnelle)
 
-Étend le fan-out d'OutputsSync au-delà de la machine : plusieurs Mac forment une
-**room** (nom + **code PIN**) sur le LAN ; n'importe quel peer peut **émettre**
-son son système (capté par le driver loopback) et **s'abonner** au flux d'un autre
-peer pour le jouer localement — le tout **synchronisé** grâce à une **horloge
-commune**.
+Étend le fan-out d'OutputsSync au-delà de la machine : plusieurs Mac forment un
+**salon** (nom + **code PIN**) sur le LAN. L'UI présente un modèle **source →
+enceintes** : le **créateur du salon est la source** (il capte son son système via
+le driver loopback et le met), les autres Mac sont des **enceintes** qui le jouent
+localement — le tout **synchronisé** grâce à une **horloge commune**. Le transport
+sous-jacent reste un maillage pair-à-pair (une connexion par paire).
 
 ```
    Mac A (émet + reçoit)                 Mac B (émet + reçoit)
@@ -58,29 +59,39 @@ qualité (sans perte) et la latence la plus basse (zéro encodage). **Opus**
   - `streamSettings` (émetteur → récepteur) : volume/délai de mon son chez lui.
 - **UDP** : pings de synchro d'horloge (RTT-min) **et** paquets audio.
 
-## Destinations unifiées
+## Destinations unifiées (côté source)
 
-Dans une room, l'UI présente **une seule liste de destinations** = mes sorties
-locales + les Mac de la room. Cocher une destination y envoie mon son :
+Pour la **source**, l'UI présente **une seule liste d'enceintes** = mes sorties
+locales + les Mac du salon. Cocher une enceinte y envoie mon son :
 - **sortie locale** → fan-out local (moteur `SyncEngine`) ;
-- **Mac distant** → `requestPlay` : le Mac ouvre un récepteur sur **ses propres**
-  sorties et me renvoie un `subscribe` ; je lui diffuse mon son, aligné par
+- **Mac distant** → `requestPlay` : le Mac ouvre un récepteur sur **sa propre**
+  sortie et me renvoie un `subscribe` ; je lui diffuse mon son, aligné par
   l'horloge commune. Le volume/délai que je règle pour lui est envoyé via
   `streamSettings` et appliqué **chez lui**.
 
-Le bouton casque d'une ligne Mac fait l'inverse : j'**écoute** son son (il sort
-sur ma sortie locale choisie).
+Une **enceinte** (invité) n'a qu'un seul réglage : **sur quelle sortie locale**
+jouer le son de la source (déplacement à chaud via `setListenOutput`).
+
+## Re-synchronisation (`resync`)
+
+Le bouton **Sync** re-prime chaque chemin audio pour le re-verrouiller sur
+l'horloge commune : la source renvoie `stopPlay`+`requestPlay` à chaque enceinte
+distante (elle recrée un flux neuf), et une enceinte re-prime son propre
+`PlayoutBuffer`. Utile après une dérive, un rebranchement ou un changement de
+sortie. Aucun état d'horloge n'est remis à zéro — seul le playout est ré-ancré.
 
 ## Rôles
 
-- **Créer** une room → tu deviens **maître d'horloge** (`master=1`). **PIN
-  optionnel** : sans PIN (`pin=0`), la room est ouverte ; le handshake exige
+- **Créer** un salon → tu es la **source** et le **maître d'horloge** (`master=1`).
+  **PIN optionnel** : sans PIN (`pin=0`), le salon est ouvert ; le handshake exige
   alors un PIN vide.
-- **Rejoindre** (depuis la liste du lobby) → tu te connectes aux peers de la room
-  (PIN si requis), tu synchronises ton horloge sur le maître, tu peux émettre
-  vers et/ou écouter n'importe quel peer.
-- Un Mac qui **écoute / reçoit seulement n'a pas besoin du driver loopback** ;
-  seul un Mac qui **émet** en a besoin (pour capter son son système).
+- **Rejoindre** (depuis la liste du lobby) → tu deviens une **enceinte** : tu te
+  connectes aux peers (PIN si requis), tu synchronises ton horloge sur la source,
+  et tu joues son son sur ta sortie locale quand elle t'ajoute.
+- Une enceinte **n'a pas besoin du driver loopback** ; seule la **source** en a
+  besoin (pour capter son son système). Le transport reste bidirectionnel
+  (`toggleListen` existe encore côté moteur), mais l'UI n'expose que le modèle
+  source → enceintes.
 
 ## Discipline temps-réel
 
@@ -104,7 +115,7 @@ Aucun IOProc audio ne fait d'alloc / lock / syscall :
 | `Network/NetworkSink.swift` | `NetworkStream` (réception+playout) + `OutputMixer` (1 IOProc/sortie, mixe les flux) |
 | `Network/RoomManager.swift` | `@MainActor`, orchestration + état publié |
 | `Network/NetTest.swift` | Vérif headless (`--nettest`) : horloge, PIN, Bonjour, paquet, playout |
-| `UI/RoomView.swift` | Liste peers, PIN, toggles émettre/écouter, volume/délai |
+| `UI/RoomView.swift` | UX source → enceintes : lobby/PIN, liste d'enceintes (source), sortie d'écoute (invité), bouton Sync |
 
 ## Permissions (macOS 15+)
 

@@ -463,6 +463,41 @@ final class RoomManager: ObservableObject {
         setPeerFlag(peerID) { $0.listening = false }
     }
 
+    /// Re-primer la lecture d'un peer déjà écouté (sortie changée, ou re-sync).
+    private func restartListening(_ peerID: String) {
+        guard streams[peerID] != nil else { return }
+        stopListening(peerID)
+        startListening(peerID)
+    }
+
+    // MARK: re-synchronisation manuelle
+
+    /// Y a-t-il un chemin audio actif (j'émets ou j'écoute) ? Pilote le bouton Sync.
+    var hasActiveAudio: Bool { broadcasting || peers.contains { $0.listening } }
+
+    /// Re-aligne toutes les enceintes du salon : re-prime chaque chemin audio pour
+    /// qu'il se re-verrouille sur l'horloge commune (après une dérive, un
+    /// rebranchement ou un changement de sortie).
+    func resync() {
+        guard isActive else { return }
+        // Côté source : demander à chaque Mac récepteur de relancer ma lecture.
+        for peer in peers where peer.sendingToThem {
+            guard let link = links[peer.peerID] else { continue }
+            link.send(ControlMessage(type: .stopPlay))
+            link.send(ControlMessage(type: .requestPlay, volume: peer.destVolume, delayMs: peer.destDelay))
+        }
+        // Côté enceinte : re-primer ma propre lecture de la source.
+        for peer in peers where peer.listening { restartListening(peer.peerID) }
+        statusMessage = hasActiveAudio ? "Re-synchronisation…" : "Rien à synchroniser."
+    }
+
+    /// Change la sortie locale d'écoute et y déplace les flux en cours.
+    func setListenOutput(_ uid: String) {
+        guard uid != selectedOutputUID else { return }
+        selectedOutputUID = uid
+        for peer in peers where peer.listening { restartListening(peer.peerID) }
+    }
+
     /// Arrête le flux reçu d'un peer et libère son mixeur s'il devient vide.
     private func detachStream(_ peerID: String) {
         guard let stream = streams[peerID] else { return }

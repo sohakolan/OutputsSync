@@ -1,28 +1,40 @@
 import SwiftUI
 
-/// Onglet « Réseau » : créer/rejoindre une room, puis une **liste unifiée de
-/// destinations** (mes sorties locales + les Mac de la room). Mon son sort vers
-/// tout ce qui est coché — local ET distant — synchronisé par l'horloge commune.
+/// Onglet « Réseau ». Modèle **source → enceintes** : celui qui crée le salon est
+/// la **source** (c'est lui qui met le son) ; il choisit quelles enceintes — ses
+/// sorties locales et les Mac du salon — jouent son son, synchronisées par
+/// l'horloge commune. Les invités sont de simples **enceintes** : ils écoutent la
+/// source sur la sortie locale de leur choix.
 struct RoomView: View {
     @EnvironmentObject var room: RoomManager
     @EnvironmentObject var state: AppState
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if room.isActive { activeView } else { lobbyView }
-            let msg = room.statusMessage.isEmpty ? state.statusMessage : room.statusMessage
-            if room.isActive, !msg.isEmpty {
-                Text(msg).font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else if !room.statusMessage.isEmpty {
-                Text(room.statusMessage).font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            if room.isActive {
+                if room.isMaster { hostView } else { guestView }
+            } else {
+                lobbyView
             }
+            statusLine
         }
         .onAppear { room.startLobby() }
     }
 
-    // MARK: hors room (lobby)
+    private var statusLine: some View {
+        // La source (hôte) voit aussi les messages du moteur local (sorties, sync
+        // auto) ; l'enceinte (invité) non — elle n'a pas de fan-out local.
+        let fallback = (room.isActive && room.isMaster) ? state.statusMessage : ""
+        let msg = room.statusMessage.isEmpty ? fallback : room.statusMessage
+        return Group {
+            if !msg.isEmpty {
+                Text(msg).font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    // MARK: hors salon (lobby)
 
     private var lobbyView: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -40,17 +52,20 @@ struct RoomView: View {
     private var detectedRoomsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Rooms détectées").font(.subheadline).bold()
+                Text("Salons détectés").font(.subheadline).bold()
                 Spacer()
                 Button { room.rescanLobby() } label: { Image(systemName: "arrow.clockwise") }
                     .buttonStyle(.borderless).help("Re-scanner le réseau")
             }
             if room.discoveredRooms.isEmpty {
-                Text("Aucune room détectée. Crée-en une ci-dessous, ou attends qu'un Mac en crée une.")
+                Text("Aucun salon détecté. Crée-en un ci-dessous, ou attends qu'un Mac en crée un.")
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 ForEach(room.discoveredRooms) { roomRow($0) }
+                Text("Rejoindre un salon = devenir une **enceinte** : tu écoutes la source sur ta sortie locale.")
+                    .font(.caption2).foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -61,7 +76,7 @@ struct RoomView: View {
                 .font(.caption).foregroundStyle(r.needsPIN ? Color.secondary : Color.green)
             Text(r.name).font(.callout).lineLimit(1)
             Text("· \(r.peopleCount)").font(.caption2).foregroundStyle(.secondary)
-                .help("\(r.peopleCount) Mac dans cette room")
+                .help("\(r.peopleCount) Mac dans ce salon")
             Spacer()
             Button { room.selectRoomToJoin(r) } label: { Text("Rejoindre").font(.caption2) }
                 .buttonStyle(.bordered).controlSize(.small).tint(.purple)
@@ -70,17 +85,17 @@ struct RoomView: View {
 
     private var createSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Créer une room").font(.subheadline).bold()
-            field("Room", text: $room.roomName, placeholder: "Salon")
+            Text("Créer un salon").font(.subheadline).bold()
+            field("Salon", text: $room.roomName, placeholder: "Salon")
             HStack(spacing: 8) {
                 Text("PIN").font(.caption).frame(width: 60, alignment: .leading)
                 SecureField("optionnel", text: $room.pin).textFieldStyle(.roundedBorder)
             }
             Button { room.createRoom() } label: {
-                Label("Créer", systemImage: "plus.circle.fill").frame(maxWidth: .infinity)
+                Label("Créer le salon", systemImage: "plus.circle.fill").frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent).tint(.purple).disabled(room.roomName.isEmpty)
-            Text("Tu deviens l'horloge maître. PIN optionnel : sans PIN, la room est ouverte à tous.")
+            Text("**Tu deviens la source** : ton son est envoyé aux enceintes cochées, synchronisées. PIN optionnel : sans PIN, le salon est ouvert à tous.")
                 .font(.caption2).foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -104,42 +119,26 @@ struct RoomView: View {
         }
     }
 
-    // MARK: dans la room
+    // MARK: source (créateur du salon)
 
-    private var activeView: some View {
+    private var hostView: some View {
         VStack(alignment: .leading, spacing: 12) {
-            roomHeader
+            header(role: "Tu es la source", roleIcon: "dot.radiowaves.up.forward", showOffset: false)
+            if !state.sourceAvailable {
+                Label("Émettre requiert le driver « OutputsSync » comme sortie système.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption2).foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             destinationsSection
-            Divider()
-            receiveSection
+            syncBar
         }
     }
-
-    private var roomHeader: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "dot.radiowaves.left.and.right").foregroundStyle(.purple)
-            Text(room.roomName).font(.subheadline).bold()
-            if room.isMaster {
-                badge("horloge maître", "metronome.fill")
-            } else {
-                Text(String(format: "±%.1f ms", room.clockOffsetMs))
-                    .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
-                    .help("Décalage estimé avec l'horloge maître")
-            }
-            Spacer()
-            Button { room.leaveRoom() } label: {
-                Image(systemName: "rectangle.portrait.and.arrow.right")
-            }
-            .buttonStyle(.borderless).help("Quitter la room")
-        }
-    }
-
-    // MARK: destinations (local + Mac)
 
     private var destinationsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Mes destinations").font(.subheadline).bold()
+                Text("Enceintes du salon").font(.subheadline).bold()
                 Spacer()
                 Button { state.refreshDevices(); room.refreshOutputs() } label: {
                     Image(systemName: "arrow.clockwise")
@@ -152,7 +151,7 @@ struct RoomView: View {
                 Text("Aucune sortie locale ni Mac dans « \(room.roomName) »…")
                     .font(.caption).foregroundStyle(.secondary)
             }
-            Text("Coche des sorties locales et/ou des Mac : ton son sort partout en même temps. Chaque Mac joue sur ses propres sorties.")
+            Text("Coche des sorties locales et/ou des Mac : ton son sort partout en même temps, synchronisé. Chaque Mac joue sur sa propre sortie.")
                 .font(.caption2).foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -189,14 +188,9 @@ struct RoomView: View {
                 Image(systemName: "laptopcomputer").font(.caption)
                     .foregroundStyle(peer.connected ? .secondary : Color.secondary.opacity(0.4))
                 Text(peer.name).font(.callout).lineLimit(1)
-                if peer.isMaster { badge("maître", "metronome") }
                 Spacer()
-                Button { room.toggleListen(peer.peerID) } label: {
-                    Image(systemName: peer.listening ? "headphones.circle.fill" : "headphones")
-                        .foregroundStyle(peer.listening ? Color.purple : .secondary)
-                }
-                .buttonStyle(.borderless).disabled(!peer.connected)
-                .help(peer.listening ? "J'écoute ce Mac" : "Écouter ce Mac")
+                Text(peer.connected ? "Mac" : "hors ligne")
+                    .font(.caption2).foregroundStyle(.tertiary)
             }
             if peer.sendingToThem {
                 slider("dial.low", value: Binding(
@@ -209,22 +203,71 @@ struct RoomView: View {
         }
     }
 
-    // MARK: réception
+    // MARK: enceinte (invité du salon)
 
-    private var receiveSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
+    private var guestView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            header(role: "Tu es une enceinte", roleIcon: "hifispeaker.fill", showOffset: true)
+            listenSection
+            syncBar
+        }
+    }
+
+    private var listenSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if room.hasActiveAudio {
+                Label("Tu écoutes la source de « \(room.roomName) »", systemImage: "waveform")
+                    .font(.callout).foregroundStyle(.purple)
+            } else {
+                Label("En attente que la source t'ajoute au salon…", systemImage: "hourglass")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
             HStack(spacing: 8) {
                 Image(systemName: "headphones").font(.caption).foregroundStyle(.secondary)
-                Text("Écouter sur").font(.caption)
-                Picker("", selection: $room.selectedOutputUID) {
+                Text("Sortie").font(.caption)
+                Picker("", selection: Binding(
+                    get: { room.selectedOutputUID },
+                    set: { room.setListenOutput($0) })) {
                     ForEach(room.outputs) { Text($0.name).tag($0.uid) }
                 }
                 .labelsHidden()
             }
-            Text("Sortie locale où jouer le son des Mac que tu écoutes (bouton casque).")
+            Text("La source (le créateur du salon) met le son. Choisis la sortie locale où le jouer. Écouter ne demande **pas** le driver.")
                 .font(.caption2).foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    // MARK: en-tête + sync communs
+
+    private func header(role: String, roleIcon: String, showOffset: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "dot.radiowaves.left.and.right").foregroundStyle(.purple)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(room.roomName).font(.subheadline).bold().lineLimit(1)
+                Label(role, systemImage: roleIcon).font(.caption2).foregroundStyle(.purple)
+            }
+            Spacer()
+            if showOffset {
+                Text(String(format: "±%.1f ms", room.clockOffsetMs))
+                    .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                    .help("Décalage estimé avec l'horloge de la source")
+            }
+            Button { room.leaveRoom() } label: {
+                Image(systemName: "rectangle.portrait.and.arrow.right")
+            }
+            .buttonStyle(.borderless).help("Quitter le salon")
+        }
+    }
+
+    private var syncBar: some View {
+        Button { room.resync() } label: {
+            Label("Resynchroniser", systemImage: "arrow.triangle.2.circlepath")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered).tint(.purple).controlSize(.small)
+        .disabled(!room.hasActiveAudio)
+        .help("Re-aligne toutes les enceintes du salon sur l'horloge commune")
     }
 
     // MARK: composants
@@ -253,13 +296,5 @@ struct RoomView: View {
             Text(label).font(.caption).frame(width: 60, alignment: .leading)
             TextField(placeholder, text: text).textFieldStyle(.roundedBorder)
         }
-    }
-
-    private func badge(_ text: String, _ symbol: String) -> some View {
-        Label(text, systemImage: symbol)
-            .font(.caption2)
-            .padding(.horizontal, 6).padding(.vertical, 2)
-            .background(Color.purple.opacity(0.18))
-            .clipShape(Capsule())
     }
 }
